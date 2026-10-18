@@ -1,0 +1,180 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  fullName     String   @map("full_name")
+  phone        String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  orders         Order[]
+  supportTickets SupportTicket[]
+
+  @@map("users")
+}
+
+model Product {
+  id          String   @id @map("id")
+  sku         String?  @unique
+  title       String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  currency    String   @default("PEN")
+  imageUrl    String   @map("image_url")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  orderItems        OrderItem[]
+  guideGroupProducts GuideGroupProduct[]
+
+  @@map("products")
+}
+
+model Order {
+  id                     String   @id @default(uuid())
+  orderCode              String   @unique @map("order_code")
+  userId                 String?  @map("user_id")
+  customerName           String   @map("customer_name")
+  customerEmail          String   @map("customer_email")
+  customerPhone          String?  @map("customer_phone")
+  customerDocumentNumber String?  @map("customer_document_number")
+  deliveryAddress        String?  @map("delivery_address")
+  deliveryReference      String?  @map("delivery_reference")
+  baseAmount             Decimal  @map("base_amount") @db.Decimal(10, 2)
+  discountAmount         Decimal  @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  totalAmount            Decimal  @map("total_amount") @db.Decimal(10, 2)
+  couponCode             String?  @map("coupon_code")
+  status                 String   @default("pending_payment")
+  paymentStatus          String   @default("pending") @map("payment_status")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  user     User?       @relation(fields: [userId], references: [id])
+  items    OrderItem[]
+  payments Payment[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id                 String  @id @default(uuid())
+  orderId            String  @map("order_id")
+  productId          String  @map("product_id")
+  titleSnapshot      String  @map("title_snapshot")
+  unitPriceSnapshot  Decimal @map("unit_price_snapshot") @db.Decimal(10, 2)
+  quantity           Int
+  lineSubtotal       Decimal @map("line_subtotal") @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model Payment {
+  id                String    @id @default(uuid())
+  orderId           String    @map("order_id")
+  gateway           String
+  authorizationCode String?   @map("authorization_code")
+  amount            Decimal   @db.Decimal(10, 2)
+  status            String
+  gatewayPayload    Json?     @map("gateway_payload")
+  processedAt       DateTime? @map("processed_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@map("payments")
+}
+
+model Coupon {
+  code      String    @id
+  type      String
+  value     Decimal   @db.Decimal(10, 2)
+  startsAt  DateTime? @map("starts_at")
+  endsAt    DateTime? @map("ends_at")
+  maxUses   Int?      @map("max_uses")
+  usedCount Int       @default(0) @map("used_count")
+  isActive  Boolean   @default(true) @map("is_active")
+
+  @@map("coupons")
+}
+
+model GuideGroup {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  title       String
+  description String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+
+  products GuideGroupProduct[]
+
+  @@map("guide_groups")
+}
+
+model GuideGroupProduct {
+  guideGroupId String @map("guide_group_id")
+  productId    String @map("product_id")
+
+  guideGroup GuideGroup @relation(fields: [guideGroupId], references: [id])
+  product    Product    @relation(fields: [productId], references: [id])
+
+  @@id([guideGroupId, productId])
+  @@map("guide_group_products")
+}
+
+model SupportTopic {
+  id          String  @id
+  title       String
+  description String?
+  channel     String
+  isActive    Boolean @default(true) @map("is_active")
+
+  tickets SupportTicket[]
+
+  @@map("support_topics")
+}
+
+model SupportTicket {
+  id                 String   @id @default(uuid())
+  ticketCode         String   @unique @map("ticket_code")
+  topicId            String   @map("topic_id")
+  topicTitleSnapshot String   @map("topic_title_snapshot")
+  detail             String
+  customerEmail      String   @map("customer_email")
+  customerName       String   @map("customer_name")
+  userId             String?  @map("user_id")
+  status             String   @default("created")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  topic SupportTopic @relation(fields: [topicId], references: [id])
+  user  User?        @relation(fields: [userId], references: [id])
+
+  @@map("support_tickets")
+}
+
+model ContactMessage {
+  id                String    @id @default(uuid())
+  toEmail           String    @map("to_email")
+  fromEmail         String    @map("from_email")
+  subject           String
+  body              String
+  status            String    @default("queued")
+  providerMessageId String?   @map("provider_message_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  sentAt            DateTime? @map("sent_at")
+
+  @@map("contact_messages")
+}
